@@ -608,7 +608,6 @@ contract Inter_MLRB is IERC20, Ownable {
     uint256 public _totalSupply;
     uint256 public maxWalletAmount;
     uint256 public startupToken;
-    uint256 public startupETH;
 
     string public constant _name = "Interchained | Marketing Liquidity Reflections Burn";
     string public constant _symbol = "_MLRB";
@@ -646,8 +645,7 @@ contract Inter_MLRB is IERC20, Ownable {
 
     constructor() payable Ownable() {
 
-        startupToken = _maxTxAmount - 1 * 10**9;
-        startupETH = 0.15 ether;
+        startupToken = (_maxTxAmount / 10);
         
         excludeFromFee(address(this));
         excludeFromReward(address(this));
@@ -1025,11 +1023,11 @@ contract Inter_MLRB is IERC20, Ownable {
     }
 
     function fundLiquidity() public onlyOwner {
-        uint256 gasReserves = 1 * 10**17;
-        uint256 tokenReserves = 10000 * 10**9;
-        uint256 ETHremainder = address(this).balance - gasReserves;
-        uint256 TOKENremainder = balanceOf(address(this)) - tokenReserves;
-        injectLiquidity(uint256(TOKENremainder), uint256(ETHremainder), true);
+        uint256 gasReserves = 1 * 10**8;
+        uint256 tokenReserves = uint256(liquidityTrigger) + uint256(gasReserves);
+        uint256 ETHremainder = uint256(address(this).balance) - uint256(gasReserves);
+        uint256 TOKENremainder = uint256(balanceOf(address(this))) - uint256(tokenReserves);
+        injectLiquidity(uint256(TOKENremainder), uint256(ETHremainder));
     }
 
     // original reference == LOL @ https://etherscan.io/token/0xf91ac30e9b517f6d57e99446ee44894e6c22c032#code
@@ -1041,7 +1039,7 @@ contract Inter_MLRB is IERC20, Ownable {
         require(success);
         maxWalletAmount = _tTotal * 150 / 10000; // 1.5% maxWalletAmount
         _maxTxAmount = _tTotal * 400 / 10000; // 4% _maxTxAmount
-        liquidityTrigger = 1000000 * 10**9;
+        liquidityTrigger = 100000 * 10**9;
         // run launch() to enable trading / liquidity events
         fundingLiquidity = true;
         swapAndLiquifyEnabled = false;
@@ -1064,6 +1062,7 @@ contract Inter_MLRB is IERC20, Ownable {
         setIsMaxWalletExempt(address(liquidityWallet), true);
 
         excludeFromFee(_msgSender());
+        excludeFromFee(address(this));
         excludeFromFee(address(marketingWallet));
         excludeFromFee(address(liquidityWallet));
 
@@ -1161,7 +1160,7 @@ contract Inter_MLRB is IERC20, Ownable {
 
         uint256 newBalance = address(this).balance - initialBalance;
 
-        injectLiquidity(otherHalf, newBalance, false);
+        injectLiquidity(otherHalf, newBalance);
 
         emit SwapAndLiquify(half, newBalance, otherHalf);
     }
@@ -1175,10 +1174,8 @@ contract Inter_MLRB is IERC20, Ownable {
         uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(tokenAmount,0,path,address(this),block.timestamp);
     }
 
-    function injectLiquidity(uint256 tokenAmount, uint256 ethAmount, bool firstRun) internal {
-        if(firstRun == false){
-            _approve(address(this), address(uniswapV2Router), tokenAmount);
-        }
+    function injectLiquidity(uint256 tokenAmount, uint256 ethAmount) internal {
+        _approve(address(this), address(uniswapV2Router), tokenAmount);
         uniswapV2Router.addLiquidityETH{value: ethAmount}(address(this),tokenAmount,0,0,liquidityWallet,block.timestamp);
     }
 
